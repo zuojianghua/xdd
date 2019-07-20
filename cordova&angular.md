@@ -308,7 +308,272 @@ export class TitleService {
 
 ### iOS应用的检查更新
 
+已经发布到苹果市场的应用直接使用 `window.open('itms-apps://itunes.apple.com/app/idxxxxxxxxx', '_system', 'location=yes');` 打开APPStore的相应页面。 此处idxxxxxxxxx需要发布后才有
+
+```
+// 检查版本自动更新
+async checkUpdate() {
+    let pf;
+    try {
+        pf = device.platform.toLowerCase();
+    } catch (error) {
+        // 简单兼容一下通过浏览器调试时的报错
+        // device.platform 更多返回查看 https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-device/index.html#deviceplatform
+        pf = 'web';
+    }
+
+    if (pf === 'android') {
+        // 安卓自动检查下载apk
+        await this.androidUpdateService.autoUpdate(false);
+        
+    } else if (pf === 'ios') {
+        // iOS跳转到APP Store页面
+        window.open('itms-apps://itunes.apple.com/app/idxxxxxxxxx', '_system', 'location=yes');
+        
+    }
+}
+```
+
 ### 安卓应用的检查更新和自动更新
+
+安卓的自动更新相比iOS更麻烦, 如将打包好的apk放到自有的web服务器上, 可以通过比较版本号和文件下载来实现。
+
+1. 将apk文件放到web服务器上, 同时还有含有版本号信息的json文件
+2. 通过`cordova-plugin-app-version`插件获取当前app的版本号并与线上版本进行比较
+3. 通过`cordova-plugin-file-transfer`插件进行文件下载。其中需要用到`cordova-plugin-file`插件找到保存路径
+4. 通过`cordova-plugin-file-opener2`插件打开下载的文件, 即请求安装
+5. 下载的apk与当前运行的apk需要保证签名一致
+
+***说明：***
+
+environment.apk_url 为线上的版本信息地址。例如 https://127.0.0.1/ver.json 返回的内容为:
+```
+{
+    "ver": "0.3.2",
+    "apk": "app-release-0.3.2.apk",
+    "url": "https://127.0.0.1/app-release-0.3.2.apk",
+    "desc": "版本更新内容描述"
+}
+```
+
+***安装相应的插件：***
+
+```
+// https://github.com/whiteoctober/cordova-plugin-app-version
+$ cordova plugin add cordova-plugin-app-version
+
+// https://github.com/apache/cordova-plugin-file-transfer
+$ cordova plugin add cordova-plugin-file-transfer
+
+// https://github.com/apache/cordova-plugin-file
+$ cordova plugin add cordova-plugin-file
+
+// https://github.com/pwlin/cordova-plugin-file-opener2
+$ cordova plugin add cordova-plugin-file-opener2
+```
+
+***代码实现：***
+
+```
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import { throwError, Observable } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
+import { ModalService, ToastService } from 'ng-zorro-antd-mobile';
+
+
+declare const cordova;
+declare const device;
+declare const FileTransfer;
+
+@Injectable({
+    providedIn: 'root'
+})
+export class AndroidUpdateService {
+    constructor(
+        private http: HttpClient,
+        private modalService: ModalService,
+    ) {
+    }
+    
+    /**
+     * 检查自动更新
+     * @param quiet: boolean true-安静模式, 不提示  false-提示当前是否为最新版本
+     */
+    async autoUpdate(quiet = true) {
+        // 仅适用于android -------------------------------------------------------------
+        let pf;
+        try {
+            pf = device.platform.toLowerCase();
+        } catch (error) {
+            pf = 'web';
+        }
+
+        if (pf === 'android') {
+            // TODO 安卓权限申请 --------------------------------------------------------
+
+            // 比较当前版本是否为最新版本 -------------------------------------------------
+            console.log(`检查地址: ${environment.apk_url}`);
+            
+            this.http.get(`${environment.apk_url}`).subscribe(
+                async (res: any) => {
+                    const nowVersion = await cordova.getAppVersion.getVersionNumber();
+                    
+                    // versionCompare参考 https://gist.github.com/TheDistantSea/8021359 实现
+                    // 负数代表 v1 小于 v2
+                    const newVersion = this.versionCompare(res.ver, nowVersion, {
+                        lexicographical: true,
+                        zeroExtend: true,
+                    });
+                    
+                    // 发现存在船信版本后的操作 -------------------------------------------
+                    if (newVersion > 0) {
+                        // res.ver     版本号
+                        // res.desc    更新内容描述
+                        // res.url     apk文件下载地址
+                        ModalService.alert(`发现新版本${res.ver}`, '如选择立即更新将在后台进行下载, 下载后自动安装更新。是否立即更新? ', [
+                            { 
+                                text: '下次再说', onPress: () => {
+                                    console.log('自动更新下次再说');
+                                } 
+                            },
+                            {
+                                text: '立即更新', onPress: () => {
+                                    this.update(res.url);
+                                }
+                            }
+                        ]);
+                    } else if (!quiet) {
+                        ModalService.alert(`当前已是最新版本`, `版本号为${nowVersion}`, [
+                            { text: 'Ok', onPress: () => {
+                                console.log('已是最新版本');
+                            } }
+                        ]);
+                    }
+                },
+                error => {
+                    console.log('自动更新请求出错');
+                    console.log(error);
+                }
+            );
+        } else {
+            return;
+        }
+    }
+    
+    
+    /**
+     * 下载及更新
+     * @param url: string 文件下载地址
+     */
+    async update(url) {
+        console.log(cordova.file.dataDirectory);
+
+        const fileTransfer = new FileTransfer();
+        const uri = encodeURI(url);
+        const localDir = cordova.file.dataDirectory;
+        const fileURL = `${localDir}myApp.apk`;
+
+        fileTransfer.download(
+            uri,
+            fileURL,
+            (entry) => {
+                console.log('APK下载完成: ' + entry.toURL());
+
+                // 下载完成后进行APK安装
+                cordova.plugins.fileOpener2.open(
+                    entry.toURL(),
+                    'application/vnd.android.package-archive'
+                );
+            },
+            (error) => {
+                console.log('下载出错 source ' + error.source);
+                console.log('下载出错 target ' + error.target);
+                console.log('下载出错 code '   + error.code);
+            },
+            true
+        );
+
+    }
+    
+    
+    /**
+     * 版本号比对方法
+     * @link https://gist.github.com/TheDistantSea/8021359
+     * @param v1 版本号 '1.0.0'
+     * @param v2 版本号 '1.2.3'
+     * @param options [options] Optional flags that affect comparison behavior:
+     * <ul>
+     *     <li>
+     *         <tt>lexicographical: true</tt> compares each part of the version strings lexicographically instead of
+     *         naturally; this allows suffixes such as "b" or "dev" but will cause "1.10" to be considered smaller than
+     *         "1.2".
+     *     </li>
+     *     <li>
+     *         <tt>zeroExtend: true</tt> changes the result if one version string has less parts than the other. In
+     *         this case the shorter string will be padded with "zero" parts instead of being considered smaller.
+     *     </li>
+     * </ul>
+     * @returns number | NaN
+     * <ul>
+     *    <li>0 if the versions are equal</li>
+     *    <li>a negative integer iff v1 < v2</li>
+     *    <li>a positive integer iff v1 > v2</li>
+     *    <li>NaN if either version string is in the wrong format</li>
+     * </ul>
+     */
+    private versionCompare(v1, v2, options) {
+        const lexicographical = options && options.lexicographical,
+            zeroExtend = options && options.zeroExtend;
+        let v1parts = v1.split('.'),
+            v2parts = v2.split('.');
+
+        function isValidPart(x) {
+            return (lexicographical ? /^\d+[A-Za-z]*$/ : /^\d+$/).test(x);
+        }
+
+        if (!v1parts.every(isValidPart) || !v2parts.every(isValidPart)) {
+            return NaN;
+        }
+
+        if (zeroExtend) {
+            while (v1parts.length < v2parts.length) {
+                v1parts.push('0');
+            }
+            while (v2parts.length < v1parts.length) {
+                v2parts.push('0');
+            }
+        }
+
+        if (!lexicographical) {
+            v1parts = v1parts.map(Number);
+            v2parts = v2parts.map(Number);
+        }
+
+        for (let i = 0; i < v1parts.length; ++i) {
+            if (v2parts.length === i) {
+                return 1;
+            }
+
+            if (v1parts[i] === v2parts[i]) {
+                continue;
+            } else if (v1parts[i] > v2parts[i]) {
+                return 1;
+            } else {
+                return -1;
+            }
+        }
+
+        if (v1parts.length !== v2parts.length) {
+            return -1;
+        }
+
+        return 0;
+    }
+    
+}
+```
 
 ### 禁用iOS沉浸式状态栏
 
@@ -366,6 +631,7 @@ export class AppComponent {
           this.location.back();
       }, false);
   }
+}
 ```
 
 
