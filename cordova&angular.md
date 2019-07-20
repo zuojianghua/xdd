@@ -621,6 +621,34 @@ export class AppComponent {
 }
 ```
 
+## 编译和发布
 
+### iOS编译
+
+### iOS发布
+
+### 安卓编译
+
+#### 允许android9以上访问非https网址
+
+找到 platforms/android/app/src/main/AndroidManifest.xml 文件, 在`<application>`中增加 `android:usesCleartextTraffic="true"`
+
+效果如: `<application ...  android:usesCleartextTraffic="true" >`
+
+ > 注意：该文件在`cordova platform rm android` / `cordova prepare android` 后可能会重置, 需要再次添加以上选项
+
+### 安卓签名
+
+***生成签名文件***
+
+```keytool -genkey -v -keystore myApp.keystore -alias myApp.keystore -keyalg RSA -validity 36500```
+
+***用签名文件为APP签名***
+
+正常通过```cordova build android --release```编译出来的apk为未签名的`app-release-unsigned.apk`, 以下命令为apk签名
+
+```jarsigner -verbose -keystore myApp.keystore -signedjar app-release.apk app-release-unsigned.apk myApp.keystore```
+
+### 安卓发布
 
 
