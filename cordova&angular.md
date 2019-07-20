@@ -329,7 +329,44 @@ export class TitleService {
 
 ### 响应安卓系统的返回按钮事件
 
+可以通过监听页面的backbutton事件进行干预, 如不处理默认是返回上一页。详细事件查看 https://cordova.apache.org/docs/en/latest/cordova/events/events.html#backbutton
 
+```
+import { Location } from '@angular/common';
+
+@Component({
+    selector: 'app-root',
+    templateUrl: 'app.component.html'
+})
+export class AppComponent {
+
+  constructor(
+    private location: Location,
+  ){
+    this.backButtonEvent();
+  }
+
+  backButtonEvent() {
+      document.addEventListener('backbutton', (evt) => {
+          console.log('返回按钮点击');
+          
+          // 需要尝试关闭掉 模态框Modal, 动作面板ActionSheet, 侧面菜单Drawer, 打开的菜单Menu
+          if (this.opened.openedModal) {
+              // 示例: 取出当前已经打开的模态框示例，调用close方法关闭, 这样页面返回到上一页后不至于弹框还停留在画面上
+              // 此处 ng-zorro-antd-mobile 文档与实际实例返回预期不符, 所以直接阻止掉返回
+              // this.opened.openedModal.close();
+              
+              console.log('阻止返回');
+              evt.preventDefault();
+              return;
+          } 
+
+          // TODO 如果在/login页面或者已经不能再返回到/login页面时，点击显示再次点击将退出APP
+
+          this.location.back();
+      }, false);
+  }
+```
 
 
 
