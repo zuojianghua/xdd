@@ -168,3 +168,26 @@ index.html内查看以下如果存在 `<meta http-equiv="Content-Security-Policy
 
  > 其中`resources`目录内存放不同大小分辨率下的icon和开屏页图片
  
+### 使用websql进行数据存储
+
+### 使用localstorage进行数据存储
+
+### 拨打电话
+
+`$ npm install call-number --save`
+
+### 返回到上一页及白屏卡顿处理
+
+### iOS应用的检查更新
+
+### 安卓应用的检查更新和自动更新
+
+### 禁用iOS沉浸式状态栏
+
+### 响应安卓系统的返回按钮事件
+
+
+
+
+
+
