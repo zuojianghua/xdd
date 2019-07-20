@@ -579,6 +579,58 @@ export class AndroidUpdateService {
 </widget>
 ```
 
+### 禁用设备旋转
+
+设备旋转时, 画面不会跟随设备自动进行旋转。 在config.xml中加入 
+
+```
+  <!-- 禁用画面旋转 -->
+  <preference name="orientation" value="portrait" />
+```
+
+### 禁用页面弹动
+
+config.xml中加入
+
+```
+  <!-- 禁用页面上拉下拉 -->
+  <preference name="WebViewBounce" value="false" />
+  <preference name="DisallowOverscroll" value="true" />
+  
+```
+
+### 页面上禁用双击选定
+
+global.css中加入全局设置, 禁用双击选定, 可针对input/textarea或者允许选中的元素进行例外
+```
+// 禁用双击选定
+*{
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+input, textarea{
+    -webkit-user-select: auto !important;
+    -khtml-user-select: auto !important;
+    -moz-user-select: auto !important;
+    -ms-user-select: auto !important;
+    user-select: auto !important;
+}
+```
+
+### 让web页面滚动效果更顺滑
+
+global.css中加入scrolling类, 在页面使用到滚动的container元素上应用
+
+```
+.scrolling{
+    -webkit-overflow-scrolling: touch;
+}
+```
+
 ### 响应安卓系统的返回按钮事件
 
 可以通过监听页面的backbutton事件进行干预, 如不处理默认是返回上一页。详细事件查看 https://cordova.apache.org/docs/en/latest/cordova/events/events.html#backbutton
