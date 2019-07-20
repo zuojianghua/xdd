@@ -170,19 +170,162 @@ index.html内查看以下如果存在 `<meta http-equiv="Content-Security-Policy
  
 ### 使用websql进行数据存储
 
+可以直接使用 `window.openDatabase('database.db', '1.0', 'APP database', 10*1024*1024)`
+
+```
+### WebSqLObject ##############################
+// 将回调改为promise
+
+class WebSqLObject {
+    db: any;
+
+    constructor(db: any) {
+        this.db = db;
+    }
+
+    public executeSql(queryStatement: string, params?: any[]): Promise<any> {
+        return new Promise((resolve, reject) => {
+            this.db.transaction((tx) => {
+                tx.executeSql(queryStatement, params,
+                    (ctx, result) => {
+                        resolve(result);
+                    },
+                    (error) => reject(error));
+            });
+        });
+    }
+}
+
+### SqliteService ##############################
+
+@Injectable({
+    providedIn: 'root'
+})
+export class SqliteService {
+
+    database: WebSqLObject;
+
+    constructor() {}
+    
+    // 建库语句示例
+    createDatabase() {
+        const db = window.openDatabase('message.db', '1.0', 'my app database', 10 * 1024 * 1024);
+        this.database = new WebSqLObject(db);
+
+        return Promise.all([
+            this.database.executeSql(`建表语句A`,[])
+                .then(() => console.log('表创建成功'))
+                .catch(e => console.log(e)),
+            this.database.executeSql(`建表语句B`,[])
+                .then(() => console.log('表创建成功'))
+                .catch(e => console.log(e)),
+            this.database.executeSql(`建表语句C`,[])
+                .then(() => console.log('表创建成功'))
+                .catch(e => console.log(e)),
+        ]);
+    }
+    
+    // 查询语句示例
+    getInfo(id): Promise<any> {
+        return this.database.executeSql('SELECT count(*) FROM tb1 WHERE status=0 and id = ?', [id]);
+    }
+
+```
+
 ### 使用localstorage进行数据存储
+
+可以直接使用window.localStorage
+```
+// 存json数据
+window.localStorage.setItem('key', JSON.stringify(data));
+
+// 取json数据
+const data = JSON.parse(window.localStorage.getItem(key));
+```
 
 ### 拨打电话
 
+安装cordova插件, [插件说明](https://github.com/Rohfosho/CordovaCallNumberPlugin)
+
 `$ npm install call-number --save`
 
+```
+  openCallPhoneNumber(tel) {
+    if (window.plugins === undefined) {
+        console.log('web模式不支持拨打电话');
+        return;
+    }
+
+    window.plugins.CallNumber.callNumber((result) => {
+        console.log('拨打电话成功:', result);
+    }, (error) => {
+        console.log('拨打电话失败:', error);
+    }, tel, true);
+  }
+```
+
+
 ### 返回到上一页及白屏卡顿处理
+
+返回上一页可以使用: 
+* angular的Location对象back()方法
+* window.history.go(-1);
+* angular的router.navigateByUrl(url); 需要提前记录下上一页面的路由地址
+
+```
+import { Location } from '@angular/common';
+
+@Injectable({
+    providedIn: 'root'
+})
+export class TitleService {
+
+  constructor(
+      private location: Location
+  ) {}
+  
+  goBack() {
+        // window.history.go(-1);
+        this.location.back();
+    }
+}
+```
+
+ > 注：***返回时可能会造成页面卡顿/白屏，解决方法在`src/index.html`的`<header>`中加入***
+
+```
+<script>
+    // 修复页面返回在真机上白屏卡顿
+    window.addEventListener = function () {
+        (window.EventTarget || Window).prototype.addEventListener.apply(this, arguments);
+    };
+    window.removeEventListener = function () {
+        (window.EventTarget || Window).prototype.removeEventListener.apply(this, arguments);
+    };
+</script>
+
+```
 
 ### iOS应用的检查更新
 
 ### 安卓应用的检查更新和自动更新
 
 ### 禁用iOS沉浸式状态栏
+
+沉浸式状态栏会遮盖住APP顶部Title的一部分位置，可以在config.xml中加入以下配置禁用
+
+更多StatusBar设置查看 https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-statusbar/index.html
+
+```
+<widget ... >
+  ...
+  <!-- 状态栏 -->
+  <preference name="StatusBarOverlaysWebView"    value="false" />
+  <preference name="StatusBarDefaultScrollToTop" value="false" />
+  <preference name="StatusBarBackgroundColor"    value="#108ee9" />
+  ...
+</widget>
+```
 
 ### 响应安卓系统的返回按钮事件
 
