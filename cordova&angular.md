@@ -410,56 +410,43 @@ export class AndroidUpdateService {
             pf = 'web';
         }
 
-        if (pf === 'android') {
-            // TODO 安卓权限申请 --------------------------------------------------------
-
-            // 比较当前版本是否为最新版本 -------------------------------------------------
-            console.log(`检查地址: ${environment.apk_url}`);
-            
-            this.http.get(`${environment.apk_url}`).subscribe(
-                async (res: any) => {
-                    const nowVersion = await cordova.getAppVersion.getVersionNumber();
-                    
-                    // versionCompare参考 https://gist.github.com/TheDistantSea/8021359 实现
-                    // 负数代表 v1 小于 v2
-                    const newVersion = this.versionCompare(res.ver, nowVersion, {
-                        lexicographical: true,
-                        zeroExtend: true,
-                    });
-                    
-                    // 发现存在船信版本后的操作 -------------------------------------------
-                    if (newVersion > 0) {
-                        // res.ver     版本号
-                        // res.desc    更新内容描述
-                        // res.url     apk文件下载地址
-                        ModalService.alert(`发现新版本${res.ver}`, '如选择立即更新将在后台进行下载, 下载后自动安装更新。是否立即更新? ', [
-                            { 
-                                text: '下次再说', onPress: () => {
-                                    console.log('自动更新下次再说');
-                                } 
-                            },
-                            {
-                                text: '立即更新', onPress: () => {
-                                    this.update(res.url);
-                                }
-                            }
-                        ]);
-                    } else if (!quiet) {
-                        ModalService.alert(`当前已是最新版本`, `版本号为${nowVersion}`, [
-                            { text: 'Ok', onPress: () => {
-                                console.log('已是最新版本');
-                            } }
-                        ]);
-                    }
-                },
-                error => {
-                    console.log('自动更新请求出错');
-                    console.log(error);
-                }
-            );
-        } else {
+        if (pf !== 'android') {
             return;
         }
+        // TODO 安卓权限申请 --------------------------------------------------------
+
+        // 比较当前版本是否为最新版本 -------------------------------------------------
+        console.log(`检查地址: ${environment.apk_url}`);
+
+        this.http.get(`${environment.apk_url}`).subscribe(
+            async (res: any) => {
+                const nowVersion = await cordova.getAppVersion.getVersionNumber();
+
+                // versionCompare参考 https://gist.github.com/TheDistantSea/8021359 实现
+                // 负数代表 v1 小于 v2
+                const newVersion = this.versionCompare(res.ver, nowVersion, {
+                    lexicographical: true,
+                    zeroExtend: true,
+                });
+
+                // 发现存在船信版本后的操作 -------------------------------------------
+                if (newVersion > 0) {
+                    // res.ver     版本号
+                    // res.desc    更新内容描述
+                    // res.url     apk文件下载地址
+                    ModalService.alert(`发现新版本${res.ver}`, '如选择立即更新将在后台进行下载, 下载后自动安装更新。是否立即更新? ', [
+                        { text: '下次再说', onPress: () => console.log('自动更新下次再说')},
+                        { text: '立即更新', onPress: () => this.update(res.url) }
+                    ]);
+                } else if (!quiet) {
+                    ModalService.alert(`当前已是最新版本`, `版本号为${nowVersion}`, [
+                        { text: 'Ok', onPress: () => console.log('已是最新版本') }
+                    ]);
+                }
+            },
+            error => console.log('自动更新请求出错', error)
+        );
+        
     }
     
     
