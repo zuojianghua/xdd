@@ -1,0 +1,21 @@
+version: '3'
+services:
+  ## php swoole服务 ####################################
+  php:
+    image: twosee/swoole-coroutine
+    depends_on:
+      - redis
+    command: ['php', '/app/index.php', 'start']
+    volumes:
+      - ./phpservice/app:/app
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    ports:
+      - "9502:9502"
+    networks: 
+      - swarmNet
+    deploy:
+      mode: replicated
+      replicas: 1
+networks:
+  swarmNet:
+    driver: overlay
