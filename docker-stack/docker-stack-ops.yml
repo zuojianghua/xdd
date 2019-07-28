@@ -1,0 +1,42 @@
+version: '3'
+services:
+  ## 运维工具 ###################################
+  dubbo:
+    image: fabric8/java-centos-openjdk8-jre:latest
+    volumes:
+      - ./dubbo:/dubbo
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    networks: 
+      - swarmNet
+    ports:
+      - "7001:7001"
+    environment:
+      - AB_OFF=TURE
+      - JAVA_APP_JAR=/dubbo/dubbo-admin.jar
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+  rmqconsole:
+    image: styletang/rocketmq-console-ng
+    depends_on:
+      - rmqserver
+      - rmqbroker
+    networks: 
+      - swarmNet
+    ports:
+      - "7002:8080"
+    environment:
+      - JAVA_OPTS=-Drocketmq.namesrv.addr=xxx_rmqserver:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+networks:
+  swarmNet:
+    driver: overlay
