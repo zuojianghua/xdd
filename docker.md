@@ -114,12 +114,18 @@ docker stack deploy -c docker-stack.yml xxx
 # 如需重新部署可直接再次执行
 ```
 
-同一个stack的yml可以分开写，例如
+同一个stack的yml可以分开写，例如 https://github.com/zuojianghua/xdd/tree/master/docker-stack
 
-* docker-stack-web.yml
-* docker-stack-midware.yml
-* docker-stack-workflow.yml
-等等，保证在同一个swarm网络下即可
+| 文件 | 说明 |
+|-----|-----|
+| docker-stack-web.yml     | nginx和tomcat |
+| docker-stack-midware.yml | 中间件: 缓存/消息队列/日志 |
+| docker-stack-ops.yml     | 运维工具: dobbo管理器，rocketMQ控制台 |
+| docker-stack-java.yml    | java微服务 |
+| docker-stack-php.yml     | php swoole运行环境 |
+
+保证在同一个swarm网络下即可
+
 
 ### 如需卸载服务
 
