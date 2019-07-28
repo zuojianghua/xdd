@@ -1,0 +1,122 @@
+version: '3'
+services:
+  ## redis 缓存 ########################################
+  redis:
+    image: redis
+    command: ['redis-server', '--requirepass', 'password', '--appendonly', 'yes']
+    volumes:
+      - rdsData:/data
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    networks: 
+      - swarmNet
+    ports:
+      - "16379:6379"
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 2s
+      placement:
+        constraints:
+          - node.labels.midware==midware
+  ## rockertMQ 消息队列 #################################
+  rmqserver:
+    image: foxiswho/rocketmq:server-4.4.0
+    volumes:
+      - rmqData-server-store:/opt/store
+      - rmqData-server-logs:/opt/logs
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    networks: 
+      - swarmNet
+    ports:
+      - "19876:9876"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.midware==midware
+  rmqbroker: 
+    image: foxiswho/rocketmq:broker-4.4.0
+    volumes:
+      - rmqData-broker-store:/opt/store
+      - rmqData-broker-logs:/opt/logs
+      - ./rocketmq/broker.conf:/etc/rocketmq/broker.conf
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    networks: 
+      - swarmNet
+    # ports:
+    #   - "10911:10911"
+    #   - "10909:10909"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.midware==midware
+    environment:
+      - NAMESRV_ADDR=oStore_rmqserver:9876
+      - JAVA_OPTS=-Duser.home=/opt
+      - JAVA_OPT_EXT=-server -Xms128m -Xmx128m -Xmn128m
+  zookeeper:
+    image: zookeeper:latest
+    volumes:
+      - zkData-data:/data
+    #  - zkData-datalog:/datalog
+      - zkData-logs:/logs
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    networks: 
+      - swarmNet
+    # port:
+    #   - "2181:2181"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.midware==midware
+  ## logstash 日志收集 ###################################
+  logstash:
+    image: logstash:7.0.1
+    networks: 
+      - swarmNet
+    command: 
+      - /bin/sh
+      - -c
+      - |
+          ./bin/logstash-plugin install logstash-output-jdbc
+          ./bin/logstash -f ./config/logstash.conf
+          # tail -f /dev/null
+    volumes:
+      - ./logstash/config:/usr/share/logstash/config
+      - logstash-data:/usr/share/logstash/data
+      - logstash-pipeline:/usr/share/logstash/pipeline
+      - ./logstash/mysql-connector-java-8.0.15.jar:/usr/share/logstash/vendor/mysql-connector-java-8.0.15.jar
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+      placement:
+        constraints:
+          - node.labels.midware==midware
+volumes:
+  rdsData:
+  zkData-data:
+  zkData-datalog:
+  zkData-logs:
+  rmqData-server-store:
+  rmqData-server-logs: 
+  rmqData-broker-store:
+  rmqData-broker-logs:
+  logstash-data:
+  logstash-pipeline:
+networks:
+  swarmNet:
+    driver: overlay         
+ 
