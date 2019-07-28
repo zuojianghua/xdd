@@ -1,0 +1,27 @@
+version: '3'
+services:
+  ## java 的服务 ####################################
+  java:
+    image: fabric8/java-centos-openjdk8-jre:latest
+    depends_on:
+      - zookeeper
+    command: ['/deployments/run-java.sh', '--dubbo.registry.address=zookeeper://xxx_zookeeper:2181']
+    volumes:
+      - ./microservice/service.micro.app.provider-1.0-exec.jar:/deployments/microservice.jar
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime
+    networks: 
+      - swarmNet
+    environment:
+      - AB_OFF=TURE
+      - JAVA_APP_JAR=microservice.jar
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+networks:
+  swarmNet:
+    driver: overlay
